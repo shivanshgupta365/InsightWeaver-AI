@@ -1,0 +1,15 @@
+name: Bug report
+description: Report reproducible product behavior
+title: "[Bug]: "
+body:
+  - type: textarea
+    id: behavior
+    attributes: { label: What happened?, description: Do not attach private source data. }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Reproduction steps }
+    validations: { required: true }
+  - type: input
+    id: browser
+    attributes: { label: Browser and version }

@@ -1,0 +1,13 @@
+name: Production smoke
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl --fail --silent --show-error --retry 2 https://insightweaver-ai.vercel.app/api/health
+      - run: curl --fail --silent --show-error --retry 2 https://insightweaver-ai.vercel.app/ | grep -q InsightWeaver

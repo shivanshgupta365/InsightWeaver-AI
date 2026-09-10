@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.vercel/
+.env
+.env.*.local
+coverage/
+playwright-report/
+test-results/
+output/playwright/
+.playwright-cli/
+*.tsbuildinfo
+.DS_Store
+supabase/.temp/
