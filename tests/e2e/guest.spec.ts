@@ -52,3 +52,18 @@ test("privacy disclosure is reachable", async ({ page }) => {
     ),
   ).toBeVisible();
 });
+
+test("chart studio changes a demo chart from local field choices", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Open 3-minute demo/ }).click();
+  await expect(page.getByLabel("Chart studio")).toBeVisible();
+  await page.getByRole("combobox", { name: "Measure" }).selectOption({
+    label: "refund",
+  });
+  await page.getByRole("button", { name: "line" }).click();
+  await expect(page.getByRole("img", { name: "line chart" })).toBeVisible();
+  await page.getByRole("button", { name: "donut" }).click();
+  await expect(page.getByRole("img", { name: "Donut chart" })).toBeVisible();
+});

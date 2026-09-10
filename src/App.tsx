@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -39,6 +39,7 @@ import { deleteProject, listProjects, saveProject } from "./lib/storage";
 import type {
   AiAnalysis,
   AnalysisContext,
+  DataRow,
   FieldMapping,
   Project,
   SemanticRole,
@@ -686,9 +687,7 @@ function Mapping({
                                 ? {
                                     ...x,
                                     dateLocale: e.target.value as
-                                      | "DMY"
-                                      | "MDY"
-                                      | "ISO",
+                                      "DMY" | "MDY" | "ISO",
                                   }
                                 : x,
                             ),
@@ -802,7 +801,47 @@ function Workflow({ project }: { project: Project }) {
   );
 }
 function Dashboard({ project }: { project: Project }) {
-  const d = project.run!.dashboard;
+  const run = project.run!;
+  const d = run.dashboard;
+  const numericFields = run.mappings.filter((mapping) =>
+    ["revenue", "expense", "refund", "balance", "amount", "number"].includes(
+      mapping.role,
+    ),
+  );
+  const dimensionFields = run.mappings.filter((mapping) =>
+    ["date", "category", "status", "text"].includes(mapping.role),
+  );
+  const [metric, setMetric] = useState(numericFields[0]?.canonicalName ?? "");
+  const [dimension, setDimension] = useState(
+    dimensionFields.find((mapping) => mapping.role === "date")?.canonicalName ??
+      dimensionFields[0]?.canonicalName ??
+      "",
+  );
+  const [chartType, setChartType] = useState<ChartType>("bar");
+  useEffect(() => {
+    if (!numericFields.some((field) => field.canonicalName === metric)) {
+      setMetric(numericFields[0]?.canonicalName ?? "");
+    }
+    if (!dimensionFields.some((field) => field.canonicalName === dimension)) {
+      setDimension(
+        dimensionFields.find((field) => field.role === "date")?.canonicalName ??
+          dimensionFields[0]?.canonicalName ??
+          "",
+      );
+    }
+  }, [dimension, dimensionFields, metric, numericFields]);
+  const chartData = useMemo(
+    () => groupChartData(run.normalizedRows, metric, dimension),
+    [run.normalizedRows, metric, dimension],
+  );
+  const metricLabel =
+    numericFields
+      .find((field) => field.canonicalName === metric)
+      ?.canonicalName.replaceAll("_", " ") ?? "metric";
+  const dimensionLabel =
+    dimensionFields
+      .find((field) => field.canonicalName === dimension)
+      ?.canonicalName.replaceAll("_", " ") ?? "group";
   return (
     <Panel
       title="The decision view"
@@ -818,11 +857,72 @@ function Dashboard({ project }: { project: Project }) {
           </div>
         ))}
       </div>
-      <div className="chart-grid">
+      <section className="chart-studio" aria-label="Chart studio">
+        <div className="chart-studio-title">
+          <span className="kicker">Chart studio</span>
+          <h3>Ask a different question of the same data.</h3>
+          <p>
+            Choose any recognized metric and grouping field from this dataset.
+            The chart updates locally; no source rows leave your device.
+          </p>
+        </div>
+        <div className="chart-controls">
+          <label>
+            Measure
+            <select
+              aria-label="Measure"
+              value={metric}
+              onChange={(event) => setMetric(event.target.value)}
+              disabled={!numericFields.length}
+            >
+              {numericFields.map((field) => (
+                <option key={field.canonicalName} value={field.canonicalName}>
+                  {field.canonicalName.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Group by
+            <select
+              aria-label="Group by"
+              value={dimension}
+              onChange={(event) => setDimension(event.target.value)}
+              disabled={!dimensionFields.length}
+            >
+              {dimensionFields.map((field) => (
+                <option key={field.canonicalName} value={field.canonicalName}>
+                  {field.canonicalName.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div
+            className="chart-type-picker"
+            role="group"
+            aria-label="Chart type"
+          >
+            {(["bar", "line", "area", "donut", "scatter"] as ChartType[]).map(
+              (type) => (
+                <button
+                  key={type}
+                  className={chartType === type ? "active" : ""}
+                  onClick={() => setChartType(type)}
+                >
+                  {type}
+                </button>
+              ),
+            )}
+          </div>
+        </div>
+      </section>
+      <div className="chart-grid chart-grid-primary">
         <div className="chart-card">
-          <h3>Trend</h3>
-          <p>Primary amount by month</p>
-          <Bars data={d.trend} />
+          <h3>{metricLabel}</h3>
+          <p>
+            Grouped by {dimensionLabel} · {chartType} view
+          </p>
+          <AdaptiveChart type={chartType} data={chartData} />
         </div>
         <div className="chart-card">
           <h3>Breakdown</h3>
@@ -845,6 +945,158 @@ function Dashboard({ project }: { project: Project }) {
       </div>
       <DataPreview project={project} />
     </Panel>
+  );
+}
+
+type ChartType = "bar" | "line" | "area" | "donut" | "scatter";
+function groupChartData(rows: DataRow[], metric: string, dimension: string) {
+  const grouped = new Map<string, number>();
+  for (const row of rows) {
+    const amount = row[metric];
+    if (typeof amount !== "number") continue;
+    const rawLabel = String(row[dimension] ?? "Missing");
+    const label = /^\d{4}-\d{2}-\d{2}/.test(rawLabel)
+      ? rawLabel.slice(0, 7)
+      : rawLabel;
+    grouped.set(label, (grouped.get(label) ?? 0) + amount);
+  }
+  return [...grouped]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(0, 12)
+    .map(([label, value]) => ({ label, value }));
+}
+function AdaptiveChart({
+  type,
+  data,
+}: {
+  type: ChartType;
+  data: { label: string; value: number }[];
+}) {
+  if (!data.length)
+    return (
+      <p className="empty">
+        Select a numeric measure and grouping field to chart this dataset.
+      </p>
+    );
+  if (type === "bar") return <Bars data={data} />;
+  if (type === "donut") return <DonutChart data={data} />;
+  return <SvgChart type={type} data={data} />;
+}
+function SvgChart({
+  type,
+  data,
+}: {
+  type: "line" | "area" | "scatter";
+  data: { label: string; value: number }[];
+}) {
+  const width = 720,
+    height = 265,
+    pad = { x: 42, y: 25 };
+  const max = Math.max(...data.map((point) => point.value), 1),
+    min = Math.min(...data.map((point) => point.value), 0);
+  const x = (index: number) =>
+    pad.x + (index * (width - pad.x * 2)) / Math.max(data.length - 1, 1);
+  const y = (value: number) =>
+    height -
+    pad.y -
+    ((value - min) / Math.max(max - min, 1)) * (height - pad.y * 2);
+  const points = data
+    .map((point, index) => `${x(index)},${y(point.value)}`)
+    .join(" ");
+  const area = `${pad.x},${height - pad.y} ${points} ${x(data.length - 1)},${height - pad.y}`;
+  return (
+    <div className="svg-chart">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`${type} chart`}
+      >
+        <g className="chart-guides">
+          {[0.25, 0.5, 0.75].map((step) => (
+            <line
+              key={step}
+              x1={pad.x}
+              x2={width - pad.x}
+              y1={pad.y + (height - pad.y * 2) * step}
+              y2={pad.y + (height - pad.y * 2) * step}
+            />
+          ))}
+        </g>
+        {type === "area" && <polygon className="area-fill" points={area} />}{" "}
+        {type !== "scatter" && (
+          <polyline className="chart-line" points={points} />
+        )}{" "}
+        {data.map((point, index) => (
+          <g key={point.label}>
+            <circle
+              className="chart-dot"
+              cx={x(index)}
+              cy={y(point.value)}
+              r={type === "scatter" ? 6 : 4}
+            />
+            <text x={x(index)} y={height - 6} textAnchor="middle">
+              {point.label}
+            </text>
+            <text
+              className="chart-value"
+              x={x(index)}
+              y={Math.max(16, y(point.value) - 11)}
+              textAnchor="middle"
+            >
+              {point.value.toLocaleString()}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+function DonutChart({ data }: { data: { label: string; value: number }[] }) {
+  const total =
+    data.reduce((sum, item) => sum + Math.max(item.value, 0), 0) || 1;
+  let offset = 0;
+  const arcs = data.map((item, index) => {
+    const fraction = Math.max(item.value, 0) / total;
+    const dash = `${fraction * 100} ${100 - fraction * 100}`;
+    const current = offset;
+    offset += fraction * 100;
+    return { ...item, dash, offset: current, index };
+  });
+  return (
+    <div className="donut-chart">
+      <svg viewBox="0 0 240 240" role="img" aria-label="Donut chart">
+        <circle className="donut-track" cx="120" cy="120" r="78" />
+        <g transform="rotate(-90 120 120)">
+          {arcs.map((arc) => (
+            <circle
+              key={arc.label}
+              className={`donut-arc arc-${arc.index % 5}`}
+              cx="120"
+              cy="120"
+              r="78"
+              pathLength="100"
+              strokeDasharray={arc.dash}
+              strokeDashoffset={-arc.offset}
+            />
+          ))}
+        </g>
+        <text x="120" y="112" textAnchor="middle" className="donut-total">
+          {total.toLocaleString()}
+        </text>
+        <text x="120" y="132" textAnchor="middle" className="donut-caption">
+          total
+        </text>
+      </svg>
+      <div className="donut-legend">
+        {arcs.map((arc) => (
+          <span key={arc.label}>
+            <i className={`arc-${arc.index % 5}`} />
+            {arc.label}
+            <b>{Math.round((arc.value / total) * 100)}%</b>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 function Bars({ data }: { data: { label: string; value: number }[] }) {

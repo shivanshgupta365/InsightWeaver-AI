@@ -13,7 +13,7 @@ The deterministic pipeline runs in a Web Worker inside the browser. Guest projec
 - Separate revenue, expense, refund, balance, and generic amount roles
 - No cross-currency total without conversion rules
 - Exact duplicate removal, missingness, future-date, and IQR anomaly checks
-- Evidence-backed KPIs, trends, breakdowns, preview, and workflow trace
+- Evidence-backed KPIs, configurable bar/line/area/donut/scatter charts, breakdowns, preview, and workflow trace
 - IndexedDB history and offline-capable PWA
 - Eight-file ZIP export derived from the active project
 - Optional Gemini 2.5 Flash through a protected Vercel Function
