@@ -11,3 +11,4 @@ output/playwright/
 *.tsbuildinfo
 .DS_Store
 supabase/.temp/
+.vercel
