@@ -425,69 +425,139 @@ function Workspace({
     setProject(next);
   }
   return (
-    <main className="workspace">
-      <div className="workspace-head">
-        <button className="back" onClick={() => history.back()}>
-          <ArrowLeft size={16} />
-          Exit workspace
-        </button>
-        <div>
+    <main className="workspace studio-shell">
+      <aside className="studio-rail" aria-label="Project workflow">
+        <div className="rail-project">
           <span className="kicker">Local project</span>
           <h1>{project.name}</h1>
           <p>
             {run.manifest.rowCount.toLocaleString()} rows ·{" "}
-            {run.manifest.columnCount} columns ·{" "}
-            {run.manifest.fileType.toUpperCase()} · schema v
-            {project.schemaVersion}
+            {run.manifest.columnCount} columns
           </p>
         </div>
-        <span className="privacy-chip">
-          <LockKeyhole size={14} />
-          On this device
-        </span>
-      </div>
-      <div className="stepper" role="tablist">
-        {steps.map((s, i) => (
-          <button
-            key={s}
-            className={step === i ? "active" : i < step ? "done" : ""}
-            onClick={() => setStep(i)}
-          >
-            <span>{i < step ? <Check size={13} /> : i + 1}</span>
-            {s}
-          </button>
-        ))}
-      </div>
-      <div className="work-area">
-        {step === 0 && <ImportSummary project={project} />}{" "}
-        {step === 1 && <Mapping project={project} onSave={updateMappings} />}{" "}
-        {step === 2 && <Quality project={project} />}{" "}
-        {step === 3 && <Workflow project={project} />}{" "}
-        {step === 4 && <Dashboard project={project} />}{" "}
-        {step === 5 && <AiPanel project={project} setProject={setProject} />}{" "}
-        {step === 6 && <ExportPanel project={project} />}
-      </div>
-      <div className="work-nav">
-        <button
-          className="secondary"
-          disabled={step === 0}
-          onClick={() => setStep(Math.max(0, step - 1))}
-        >
-          <ArrowLeft size={16} />
-          Previous
+        <div className="rail-line" />
+        <nav className="rail-steps" aria-label="Analysis steps">
+          {steps.map((label, i) => (
+            <button
+              key={label}
+              className={step === i ? "active" : i < step ? "done" : ""}
+              onClick={() => setStep(i)}
+            >
+              <span>{i < step ? <Check size={13} /> : i + 1}</span>
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="rail-studio">
+          <span className="kicker">Evidence studio</span>
+          <span>Overview</span>
+          <span>Data table</span>
+          <span>Workflow trace</span>
+          <span>Notes</span>
+        </div>
+        <div className="rail-privacy">
+          <LockKeyhole size={18} />
+          <strong>All processing stays on this device.</strong>
+          <small>Your data never leaves your browser by default.</small>
+        </div>
+        <button className="rail-exit" onClick={() => history.back()}>
+          <ArrowLeft size={15} /> Exit workspace
         </button>
-        <span>
-          Step {step + 1} of {steps.length}
-        </span>
-        <button
-          className="primary"
-          disabled={step === 6}
-          onClick={() => setStep(Math.min(6, step + 1))}
-        >
-          Continue
-          <ArrowRight size={16} />
-        </button>
-      </div>
+      </aside>
+      <section className="studio-stage">
+        <header className="studio-topline">
+          <span>
+            InsightWeaver <b>BETA</b>
+          </span>
+          <span className="privacy-chip">
+            <LockKeyhole size={14} />
+            On this device · Private by default
+          </span>
+          <time>
+            {new Intl.DateTimeFormat("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }).format(new Date())}
+          </time>
+        </header>
+        <div className="studio-workspace">
+          <div className="workspace-head">
+            <div>
+              <span className="kicker">
+                0{step + 1} · {steps[step]}
+              </span>
+              <h2>{step === 4 ? "The decision view" : project.name}</h2>
+              <p>
+                {step === 4
+                  ? "Every number carries its source. Different currencies remain separate unless you provide conversion rules."
+                  : `A traceable analysis run · ${run.manifest.fileType.toUpperCase()} · schema v${project.schemaVersion}`}
+              </p>
+            </div>
+            <div className="decision-mantra">
+              <span>Data</span>
+              <span>Evidence</span>
+              <span>Analysis</span>
+              <span>Decision</span>
+              <em>
+                Same data.
+                <br />
+                Deeper decisions.
+              </em>
+            </div>
+          </div>
+          <div className="stepper" role="tablist">
+            {steps.map((s, i) => (
+              <button
+                key={s}
+                className={step === i ? "active" : i < step ? "done" : ""}
+                onClick={() => setStep(i)}
+              >
+                <span>{i < step ? <Check size={13} /> : i + 1}</span>
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="work-area">
+            {step === 0 && <ImportSummary project={project} />}
+            {step === 1 && (
+              <Mapping project={project} onSave={updateMappings} />
+            )}
+            {step === 2 && <Quality project={project} />}
+            {step === 3 && <Workflow project={project} />}
+            {step === 4 && <Dashboard project={project} />}
+            {step === 5 && (
+              <AiPanel project={project} setProject={setProject} />
+            )}
+            {step === 6 && <ExportPanel project={project} />}
+          </div>
+          <div className="work-nav">
+            <button
+              className="secondary"
+              disabled={step === 0}
+              onClick={() => setStep(Math.max(0, step - 1))}
+            >
+              <ArrowLeft size={16} />
+              Previous
+            </button>
+            <span>
+              Step {step + 1} of {steps.length}
+            </span>
+            <button
+              className="primary"
+              disabled={step === 6}
+              onClick={() => setStep(Math.min(6, step + 1))}
+            >
+              Continue
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+        <footer className="studio-footer">
+          <span>Evidence studio</span>
+          <span>Analyze locally · Decide confidently</span>
+        </footer>
+      </section>
     </main>
   );
 }

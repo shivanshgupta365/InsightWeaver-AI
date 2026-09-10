@@ -12,7 +12,10 @@ test("recruiter journey reaches evidence and downloads actual artifacts", async 
     page.getByRole("heading", { name: "The decision view" }),
   ).toBeVisible();
   await expect(page.getByText("Sales & revenue review")).toBeVisible();
-  await page.getByRole("button", { name: /Export/ }).click();
+  await page
+    .getByRole("tablist")
+    .getByRole("button", { name: "Export" })
+    .click();
   const download = page.waitForEvent("download");
   await page
     .getByRole("button", { name: /Download complete artifact bundle/ })
